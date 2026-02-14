@@ -304,8 +304,8 @@ function processVideoWithCanvasWatermark (inputPath, outputPath, watermarkBuffer
 
       FFmpeg(inputPath)
         .input(watermarkImagePath)
-        .complexFilter([overlayFilter])
-        .outputOptions(['-c:a', 'aac', '-b:a', '128k', '-c:v', 'libx264', '-preset', 'fast', '-crf', '23'])
+        .complexFilter([`[0:v:0][1:v]${overlayFilter}[outv]`])
+        .outputOptions(['-map', '[outv]', '-map', '0:a?', '-c:a', 'copy', '-c:v', 'libx264', '-preset', 'fast', '-crf', '23'])
         .output(outputPath)
         .on('progress', progress => {
           progressCallback?.(Math.round(progress.percent || 0))
