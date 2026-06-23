@@ -1,0 +1,76 @@
+name: Multi-Platform Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            path: Windows
+            platform: windows
+
+          - os: macos-latest
+            path: macOS
+            platform: macos
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      APP_NAME: 视频加水印
+
+    permissions:
+      id-token: write
+      contents: write
+      attestations: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        working-directory: ${{ matrix.path }}
+        run: npm ci
+
+      - name: Build
+        working-directory: ${{ matrix.path }}
+        run: npm run build
+
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ matrix.path }}/dist
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-${{ github.ref_name }}-${{ matrix.platform }}
+          path: ${{ matrix.path }}/dist
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
