@@ -8,9 +8,9 @@ const { createCanvas, GlobalFonts } = require('@napi-rs/canvas')
 
 
 const isDev = !app.isPackaged
-const binPath = isDev 
-  ? path.join(__dirname, 'bin') 
-  : path.join(process.resourcesPath, 'app.asar.unpacked', 'bin')
+const binPath = isDev
+  ? path.join(__dirname, 'build', 'bin')
+  : path.join(process.resourcesPath, 'app.asar.unpacked', 'build', 'bin')
 
 const exeExtension = process.platform === 'win32' ? '.exe' : ''
 const ffmpegPath = path.join(binPath, `ffmpeg${exeExtension}`)
@@ -42,7 +42,7 @@ const CONFIG = {
 }
 
 // 创建临时文件夹用于存放生成的临时文件
-async function createTempDir () {
+async function createTempDir() {
   const dir = path.join(os.tmpdir(), `video-wm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
   await fs.promises.mkdir(dir, { recursive: true })
   tempDirs.add(dir)
@@ -50,7 +50,7 @@ async function createTempDir () {
 }
 
 // 清理所有已创建的临时目录，防止磁盘残留
-async function cleanupTempDirs () {
+async function cleanupTempDirs() {
   for (const dir of tempDirs) {
     try {
       await fs.promises.rm(dir, { recursive: true, force: true })
@@ -66,7 +66,7 @@ async function cleanupTempDirs () {
  * @param {string} color - 颜色字符串，如 "#FFFFFF"
  * @returns {{r:number,g:number,b:number}} RGB 颜色对象
  */
-function parseColor (color) {
+function parseColor(color) {
   if (!color.startsWith('#')) return { r: 255, g: 255, b: 255 }
   const hex = color.substring(1)
   return {
@@ -83,7 +83,7 @@ function parseColor (color) {
  * @param {number} b - 蓝色通道值 (0-255)
  * @returns {number} 亮度值 (0~1)
  */
-function calculateBrightness (r, g, b) {
+function calculateBrightness(r, g, b) {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255
 }
 
@@ -92,7 +92,7 @@ function calculateBrightness (r, g, b) {
  * @param {number} brightness - 图像平均亮度 (0~1)
  * @returns {{color:string, type:'light'|'dark'}} 推荐文字颜色及类型
  */
-function getColorByBrightness (brightness) {
+function getColorByBrightness(brightness) {
   const color = brightness > CONFIG.BRIGHTNESS_THRESHOLD ? '#000000' : '#FFFFFF'
   const type = brightness > CONFIG.BRIGHTNESS_THRESHOLD ? 'dark' : 'light'
   return { color, type }
@@ -105,7 +105,7 @@ function getColorByBrightness (brightness) {
  * @param {number} maxWidth - 文本最大宽度
  * @returns {string[]} 分行后的文本数组
  */
-function wrapText (text, ctx, maxWidth) {
+function wrapText(text, ctx, maxWidth) {
   const lines = []
   let currentLine = ''
 
@@ -128,7 +128,7 @@ function wrapText (text, ctx, maxWidth) {
  * @param {'top-left'|'top-right'|'bottom-left'|'bottom-right'} position - 水印位置
  * @returns {string} FFmpeg overlay 滤镜表达式
  */
-function buildOverlayFilter (position) {
+function buildOverlayFilter(position) {
   const { x, y } = CONFIG.PADDING
   const positionMap = {
     'top-left': `overlay=${x}:${y}`,
@@ -146,7 +146,7 @@ function buildOverlayFilter (position) {
  * @param {number} height - 视频高度
  * @returns {{left:number,top:number,width:number,height:number}} 区域配置对象
  */
-function getRegionConfig (position, width, height) {
+function getRegionConfig(position, width, height) {
   const configs = {
     'top-left': { left: 0, top: 0, width: Math.floor(width * 0.3), height: Math.floor(height * 0.3) },
     'top-right': { left: Math.floor(width * 0.7), top: 0, width: Math.floor(width * 0.3), height: Math.floor(height * 0.3) },
@@ -166,7 +166,7 @@ function getRegionConfig (position, width, height) {
  * @param {number} videoHeight - 视频高度
  * @returns {Buffer} PNG 图片缓冲区
  */
-function generateWatermarkImage (text, fontSize, color, opacity, videoWidth, videoHeight) {
+function generateWatermarkImage(text, fontSize, color, opacity, videoWidth, videoHeight) {
   const { x: paddingX, y: paddingY } = CONFIG.PADDING
   const maxWidth = videoWidth - paddingX * 2
 
@@ -206,7 +206,7 @@ function generateWatermarkImage (text, fontSize, color, opacity, videoWidth, vid
  * @param {string} videoPath - 视频 file 路径
  * @returns {Promise<{width:number,height:number,duration:number}>}
  */
-function getVideoInfo (videoPath) {
+function getVideoInfo(videoPath) {
   return new Promise((resolve, reject) => {
     FFmpeg.ffprobe(videoPath, (err, metadata) => {
       if (err) return reject(err)
@@ -231,7 +231,7 @@ function getVideoInfo (videoPath) {
  * @param {string} outputPath - 缩略图输出路径
  * @returns {Promise<void>}
  */
-function extractThumbnail (videoPath, outputPath) {
+function extractThumbnail(videoPath, outputPath) {
   return new Promise((resolve, reject) => {
     FFmpeg(videoPath).outputOptions(['-vframes', '1', '-q:v', '2', '-s', CONFIG.THUMBNAIL_SIZE]).output(outputPath).on('error', reject).on('end', resolve).run()
   })
@@ -243,7 +243,7 @@ function extractThumbnail (videoPath, outputPath) {
  * @param {'top-left'|'top-right'|'bottom-left'|'bottom-right'} position - 分析区域位置
  * @returns {Promise<{color:string,brightness:number,type:string,position:string,averageColor:{r:number,g:number,b:number}}>}
  */
-async function analyzeImageColor (imagePath, position) {
+async function analyzeImageColor(imagePath, position) {
   const metadata = await sharp(imagePath).metadata()
   const posConfig = getRegionConfig(position, metadata.width, metadata.height)
 
@@ -278,7 +278,7 @@ async function analyzeImageColor (imagePath, position) {
  * @param {string} [position='bottom-right'] - 分析区域位置
  * @returns {Promise<{color:string,brightness:number,type:string,position:string}>}
  */
-async function analyzeVideoColor (videoPath, position = 'bottom-right') {
+async function analyzeVideoColor(videoPath, position = 'bottom-right') {
   const tempDir = await createTempDir()
   const thumbnailPath = path.join(tempDir, 'thumb.png')
   await extractThumbnail(videoPath, thumbnailPath)
@@ -294,7 +294,7 @@ async function analyzeVideoColor (videoPath, position = 'bottom-right') {
  * @param {Function} progressCallback - 处理进度回调函数
  * @returns {Promise<void>}
  */
-function processVideoWithCanvasWatermark (inputPath, outputPath, watermarkBuffer, overlayFilter, progressCallback) {
+function processVideoWithCanvasWatermark(inputPath, outputPath, watermarkBuffer, overlayFilter, progressCallback) {
   return new Promise(async (resolve, reject) => {
     const tempDir = await createTempDir()
     const watermarkImagePath = path.join(tempDir, 'watermark.png')
@@ -320,7 +320,7 @@ function processVideoWithCanvasWatermark (inputPath, outputPath, watermarkBuffer
 }
 
 // 创建主窗口并加载前端页面
-function createWindow () {
+function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1020,
     height: 1085,

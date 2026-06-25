@@ -20,9 +20,6 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
-    env:
-      APP_NAME: 视频加水印
-
     permissions:
       id-token: write
       contents: write
@@ -53,8 +50,10 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-${{ github.ref_name }}-${{ matrix.platform }}
-          path: ${{ matrix.path }}/dist
+          name: 视频加水印-${{ github.ref_name }}-${{ matrix.platform }}
+          path:  |
+            ${{ matrix.path }}/dist/*.exe
+            ${{ matrix.path }}/dist/*.dmg
 
   release:
     needs: build
