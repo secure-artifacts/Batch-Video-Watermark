@@ -40,7 +40,7 @@
     "sharp": "latest"
   },
   "devDependencies": {
-    "electron": "^39.0.0",
+    "electron": "^39.8.5",
     "electron-builder": "latest"
   }
 }
