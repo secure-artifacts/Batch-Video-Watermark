@@ -11,8 +11,7 @@
   },
   "build": {
     "appId": "com.Raz1ner.VideoWatermark",
-    "productName": "视频加水印工具",
-    "artifactName": "${productName}-v${version}-${os}.${ext}",
+    "artifactName": "视频加水印工具-v${version}-${os}.${ext}",
     "mac": {
       "target": [
         "dmg",
